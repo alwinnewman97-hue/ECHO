@@ -44,7 +44,7 @@ kbd{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--t3);background:
 #ui{position:fixed;inset:0;pointer-events:none;z-index:10}
 #ui>*{pointer-events:auto}
 /* Top bar */
-#tb{position:absolute;top:calc(16px + var(--sat));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:0 12px 0 16px;height:44px;background:rgba(8,8,8,.92);backdrop-filter:blur(32px) saturate(180%);-webkit-backdrop-filter:blur(32px) saturate(180%);border:1px solid rgba(255,255,255,.06);border-radius:var(--r28);white-space:nowrap;box-shadow:0 16px 48px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.09) inset,0 -1px 0 rgba(255,255,255,.02) inset}
+#tb{position:absolute;top:calc(16px + var(--sat));left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:12px;padding:0 12px 0 16px;height:44px;background:rgba(8,8,8,.92);backdrop-filter:blur(32px) saturate(180%);-webkit-backdrop-filter:blur(32px) saturate(180%);border:1px solid rgba(255,255,255,.06);border-radius:var(--r28);white-space:nowrap;box-shadow:0 16px 48px rgba(0,0,0,.7),0 1px 0 rgba(255,255,255,.09) inset,0 -1px 0 rgba(255,255,255,.02) inset;z-index:60}
 #logo{display:flex;align-items:center;gap:8px;padding-right:4px}
 .lm{font-family:'DM Mono',monospace;font-size:.9rem;color:var(--t2);letter-spacing:.05em}
 .lt{font-family:'DM Mono',monospace;font-size:.78rem;font-weight:300;letter-spacing:.18em;color:var(--t1);text-transform:lowercase}
@@ -243,7 +243,7 @@ input[type="date"]::-webkit-calendar-picker-indicator{filter:invert(.4);cursor:p
   #sc,#cc{width:100%}
 
   /* Detail / upcoming panels become bottom sheets, not side drawers */
-  #dp,#upc{top:auto;bottom:0;left:0;right:0;width:100%;height:88vh;max-height:88vh;
+  #dp,#upc{top:auto;bottom:0;left:0;right:0;width:100%;height:80vh;max-height:80vh;
     border-left:none;border-top:1px solid rgba(255,255,255,.08);
     border-radius:var(--r28) var(--r28) 0 0;
     box-shadow:0 -16px 60px rgba(0,0,0,.6);padding-bottom:var(--sab)}
@@ -675,18 +675,6 @@ class Renderer {
     this.canvas=canvas;this.ctx=canvas.getContext('2d');
     this.imgCache={};this.t=0;this.NR=38;this._w=0;this._h=0;this._mwp=null;
     this._bgCache=null;this._bgW=0;this._bgH=0;
-    this._stars=this._genStars(200);
-  }
-  _genStars(n){
-    const s=[];
-    for(let i=0;i<n;i++) s.push({
-      nx:Math.random(), ny:Math.random(),
-      r:Math.random()*.9+.15,
-      ba:Math.random()*.28+.04,
-      ph:Math.random()*Math.PI*2,
-      sp:Math.random()*.5+.15
-    });
-    return s;
   }
   resize(){
     const dpr=window.devicePixelRatio||1,w=window.innerWidth,h=window.innerHeight;
@@ -700,23 +688,30 @@ class Renderer {
     this.t+=.016;
     // Layer 0: cached nebula + vignette
     this._drawBg(ctx,w,h);
-    // Layer 1: star field with parallax + twinkling
-    this._drawStars(ctx,cam,w,h);
     // Layer 2: animated center glow
     this._drawCenterGlow(ctx,w,h);
     // Layer 3: dot grid (world space)
     this._grid(cam,w,h);
     ctx.save();ctx.translate(cam.x,cam.y);ctx.scale(cam.scale,cam.scale);
+    // Viewport bounds in world space, padded so edges/labels aren't cut early
+    const pad=160/cam.scale;
+    const vx0=-cam.x/cam.scale-pad, vy0=-cam.y/cam.scale-pad;
+    const vx1=vx0+w/cam.scale+pad*2, vy1=vy0+h/cam.scale+pad*2;
+    const inView=(x,y)=>x>=vx0&&x<=vx1&&y>=vy0&&y<=vy1;
     // Connections — wide soft stroke + crisp stroke, zero ctx.filter
     state.connections.forEach(c=>{
       const a=state.pm[c.source],b=state.pm[c.target];
-      if(a&&b)this._conn(a,b,c,!!(selId&&(c.source===selId||c.target===selId)));
+      if(!a||!b)return;
+      // Skip only if both endpoints AND midpoint are off-screen
+      if(!inView(a.x,a.y)&&!inView(b.x,b.y)&&!inView((a.x+b.x)/2,(a.y+b.y)/2))return;
+      this._conn(a,b,c,!!(selId&&(c.source===selId||c.target===selId)));
     });
     if(connSrcId&&this._mwp){const s=state.pm[connSrcId];if(s)this._prevLine(s.x,s.y,this._mwp.x,this._mwp.y)}
     // Node glow halos (radial gradient, no ctx.filter)
     state.people.forEach(p=>{
       const hov=p.id===hovId,sel=p.id===selId,src=p.id===connSrcId;
       if(!hov&&!sel&&!src)return;
+      if(!inView(p.x,p.y))return;
       const r=this.NR,{x,y}=p;
       const outerR=sel?r+32:src?r+30:r+20;
       const col=src?'255,200,60':'255,255,255';
@@ -728,7 +723,10 @@ class Renderer {
       ctx.fillStyle=g;ctx.fill();
     });
     // Nodes
-    state.people.forEach(p=>this._node(p,p.id===hovId,p.id===selId,p.id===connSrcId,cam.scale));
+    state.people.forEach(p=>{
+      if(!inView(p.x,p.y))return;
+      this._node(p,p.id===hovId,p.id===selId,p.id===connSrcId,cam.scale);
+    });
     ctx.restore();
     if(!state.people.length)this._empty(w,h);
   }
@@ -762,20 +760,6 @@ class Renderer {
     }
     ctx.drawImage(this._bgCache,0,0);
   }
-  // ── Stars: screen-space with gentle parallax + per-star twinkling
-  _drawStars(ctx,cam,w,h){
-    const px=cam.x*.055,py=cam.y*.055;
-    this._stars.forEach(s=>{
-      const x=((s.nx*w+px)%w+w)%w;
-      const y=((s.ny*h+py)%h+h)%h;
-      const twinkle=.62+.38*Math.sin(this.t*s.sp+s.ph);
-      const a=s.ba*twinkle;
-      ctx.globalAlpha=a;
-      ctx.beginPath();ctx.arc(x,y,s.r,0,Math.PI*2);
-      ctx.fillStyle='#fff';ctx.fill();
-    });
-    ctx.globalAlpha=1;
-  }
   // ── Animated center glow — single gradient, cheap
   _drawCenterGlow(ctx,w,h){
     const pulse=.68+.32*Math.sin(this.t*.38);
@@ -787,7 +771,10 @@ class Renderer {
   }
   // ── Grid: dots fade from viewport center
   _grid(cam,w,h){
-    const{ctx}=this,gs=55;
+    const{ctx}=this;
+    // Increase effective spacing as we zoom out so the number of on-screen
+    // grid cells stays roughly constant — same visual density, far fewer draws.
+    const gs=55*Math.max(1,Math.round(.6/Math.max(cam.scale,.05)));
     const ba=Math.min(.48,cam.scale*.42)*.42;
     if(ba<.004)return;
     const sx=Math.floor(-cam.x/cam.scale/gs)*gs,sy=Math.floor(-cam.y/cam.scale/gs)*gs;
@@ -812,22 +799,26 @@ class Renderer {
     return{cx:mx-dy/len*c,cy:my+dx/len*c};
   }
   _qpt(x1,y1,cx,cy,x2,y2,t){const m=1-t;return{x:m*m*x1+2*m*t*cx+t*t*x2,y:m*m*y1+2*m*t*cy+t*t*y2}}
-  // ── Connections: color-coded by type, soft wide stroke + crisp line + flow particles
+  // ── Connections: color-coded by type, soft wide stroke + crisp stroke + flow particles
   _connColor(type){
-    // returns [r,g,b] matching the relationship type
+    if(!this._colCache)this._colCache={};
+    if(this._colCache[type])return this._colCache[type];
+    let rgb;
     switch(type){
-      case 'family':  return[255,185,80];   // warm amber
-      case 'work':    return[100,180,255];  // cool blue
-      case 'creative':return[80,220,180];   // teal
-      case 'mentor':  return[180,130,255];  // soft violet
-      case 'custom':  return[180,180,180];  // neutral grey
-      default:        return[255,255,255];  // friend — white
+      case 'family':  rgb=[255,185,80];break;   // warm amber
+      case 'work':    rgb=[100,180,255];break;  // cool blue
+      case 'creative':rgb=[80,220,180];break;   // teal
+      case 'mentor':  rgb=[180,130,255];break;  // soft violet
+      case 'custom':  rgb=[180,180,180];break;  // neutral grey
+      default:        rgb=[255,255,255];        // friend — white
     }
+    const str=`${rgb[0]},${rgb[1]},${rgb[2]}`;
+    this._colCache[type]=str;
+    return str;
   }
   _conn(a,b,c,hi){
     const{ctx}=this,{cx,cy}=this._cp(a.x,a.y,b.x,b.y);
-    const[r,g,bv]=this._connColor(c.type);
-    const col=`${r},${g},${bv}`;
+    const col=this._connColor(c.type);
     if(hi){
       ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.quadraticCurveTo(cx,cy,b.x,b.y);
       ctx.strokeStyle=`rgba(${col},.08)`;ctx.lineWidth=10;ctx.stroke();
@@ -862,10 +853,10 @@ class Renderer {
     // Soft ambient shadow under every node — becomes a state-aware glow on
     // hover / select / connect, instead of a baked-in glossy highlight.
     ctx.save();
-    if(sel){ctx.shadowColor='rgba(255,255,255,.4)';ctx.shadowBlur=24/scale;}
-    else if(src){ctx.shadowColor='rgba(255,200,60,.45)';ctx.shadowBlur=22/scale;}
-    else if(hov){ctx.shadowColor='rgba(255,255,255,.25)';ctx.shadowBlur=16/scale;}
-    else{ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=10/scale;ctx.shadowOffsetY=3/scale;}
+    if(sel){ctx.shadowColor='rgba(255,255,255,.4)';ctx.shadowBlur=Math.min(24/scale,60);}
+    else if(src){ctx.shadowColor='rgba(255,200,60,.45)';ctx.shadowBlur=Math.min(22/scale,60);}
+    else if(hov){ctx.shadowColor='rgba(255,255,255,.25)';ctx.shadowBlur=Math.min(16/scale,60);}
+    else{ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=Math.min(10/scale,60);ctx.shadowOffsetY=Math.min(3/scale,12);}
     ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fillStyle='#000';ctx.fill();
     ctx.restore();
     ctx.save();ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.clip();
@@ -886,17 +877,13 @@ class Renderer {
     else{ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=.8/scale;}
     ctx.stroke();
     // Overdue dot — amber indicator top-right when contact is overdue
-    if(!sel&&!src&&scale>.35&&p.lastContacted){
-      const daysSince=(Date.now()-new Date(p.lastContacted+'T00:00:00').getTime())/(864e5);
-      const freq=p.contactFreq||30;
-      if(daysSince>freq){
-        const dr=5.5/scale,dx2=x+r*.7,dy2=y-r*.7;
-        ctx.beginPath();ctx.arc(dx2,dy2,dr+1/scale,0,Math.PI*2);
-        ctx.fillStyle='rgba(0,0,0,.85)';ctx.fill();
-        ctx.beginPath();ctx.arc(dx2,dy2,dr,0,Math.PI*2);
-        const dc=daysSince>freq*3?'255,90,90':daysSince>freq*2?'255,130,60':'255,185,60';
-        ctx.fillStyle=`rgba(${dc},.92)`;ctx.fill();
-      }
+    if(!sel&&!src&&scale>.35&&p._overdueLvl){
+      const dr=5.5/scale,dx2=x+r*.7,dy2=y-r*.7;
+      ctx.beginPath();ctx.arc(dx2,dy2,dr+1/scale,0,Math.PI*2);
+      ctx.fillStyle='rgba(0,0,0,.85)';ctx.fill();
+      ctx.beginPath();ctx.arc(dx2,dy2,dr,0,Math.PI*2);
+      const dc=p._overdueLvl===3?'255,90,90':p._overdueLvl===2?'255,130,60':'255,185,60';
+      ctx.fillStyle=`rgba(${dc},.92)`;ctx.fill();
     }
     if(scale>.22){
       const alpha=Math.min(1,(scale-.22)/.28);
@@ -947,7 +934,16 @@ function uid(){return Math.random().toString(36).slice(2,10)+Date.now().toString
 class World {
   constructor(){this.people=[];this.connections=[];this.memories=[];this.pm={};this._onChange=null}
   setChange(fn){this._onChange=fn}
-  _notify(){if(this._onChange)this._onChange()}
+  _notify(){this._recalcOverdue();if(this._onChange)this._onChange()}
+  _recalcOverdue(){
+    const now=Date.now();
+    this.people.forEach(p=>{
+      if(!p.lastContacted){p._overdueLvl=0;return}
+      const daysSince=(now-new Date(p.lastContacted+'T00:00:00').getTime())/(864e5);
+      const freq=p.contactFreq||30;
+      p._overdueLvl=daysSince>freq*3?3:daysSince>freq*2?2:daysSince>freq?1:0;
+    });
+  }
   get state(){return{people:this.people,connections:this.connections,memories:this.memories,pm:this.pm}}
   // People
   addPerson(d){const p={id:d.id||uid(),name:(d.name||'Unnamed').trim(),notes:d.notes||'',tags:d.tags||[],dates:d.dates||[],photo:d.photo||null,x:d.x!==undefined?d.x:(Math.random()-.5)*600,y:d.y!==undefined?d.y:(Math.random()-.5)*400};this.people.push(p);this.pm[p.id]=p;this._notify();return p}
