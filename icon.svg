@@ -1,0 +1,55 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="78%">
+      <stop offset="0%" stop-color="#161616"/>
+      <stop offset="60%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#020202"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="glowSm" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="9"/>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- soft ambient glow behind the whole cluster -->
+  <circle cx="256" cy="244" r="150" fill="#ffffff" opacity="0.05" filter="url(#glow)"/>
+
+  <!-- connecting lines -->
+  <g stroke="#ffffff" stroke-linecap="round">
+    <line x1="256" y1="256" x2="256" y2="130" stroke-opacity="0.30" stroke-width="4"/>
+    <line x1="256" y1="256" x2="364" y2="320" stroke-opacity="0.30" stroke-width="4"/>
+    <line x1="256" y1="256" x2="148" y2="320" stroke-opacity="0.30" stroke-width="4"/>
+    <line x1="256" y1="256" x2="364" y2="192" stroke-opacity="0.22" stroke-width="3"/>
+    <line x1="256" y1="256" x2="148" y2="192" stroke-opacity="0.22" stroke-width="3"/>
+    <line x1="148" y1="192" x2="256" y2="130" stroke-opacity="0.10" stroke-width="2"/>
+    <line x1="364" y1="192" x2="256" y2="130" stroke-opacity="0.10" stroke-width="2"/>
+    <line x1="148" y1="320" x2="148" y2="192" stroke-opacity="0.10" stroke-width="2"/>
+    <line x1="364" y1="320" x2="364" y2="192" stroke-opacity="0.10" stroke-width="2"/>
+  </g>
+
+  <!-- satellite glow halos -->
+  <circle cx="256" cy="130" r="22" fill="#ffffff" opacity="0.16" filter="url(#glowSm)"/>
+  <circle cx="364" cy="192" r="20" fill="#ffffff" opacity="0.13" filter="url(#glowSm)"/>
+  <circle cx="148" cy="192" r="20" fill="#ffffff" opacity="0.13" filter="url(#glowSm)"/>
+  <circle cx="364" cy="320" r="20" fill="#ffffff" opacity="0.15" filter="url(#glowSm)"/>
+  <circle cx="148" cy="320" r="20" fill="#ffffff" opacity="0.15" filter="url(#glowSm)"/>
+
+  <!-- satellite nodes — flat fills, no gradient sheen -->
+  <circle cx="256" cy="130" r="20" fill="#f1f1f1" opacity="0.92"/>
+  <circle cx="364" cy="192" r="17" fill="#f1f1f1" opacity="0.74"/>
+  <circle cx="148" cy="192" r="17" fill="#f1f1f1" opacity="0.74"/>
+  <circle cx="364" cy="320" r="18" fill="#f1f1f1" opacity="0.82"/>
+  <circle cx="148" cy="320" r="18" fill="#f1f1f1" opacity="0.82"/>
+
+  <!-- center node glow -->
+  <circle cx="256" cy="256" r="58" fill="#ffffff" opacity="0.22" filter="url(#glow)"/>
+
+  <!-- center node — flat, the brightest point -->
+  <circle cx="256" cy="256" r="40" fill="#fafafa"/>
+  <circle cx="256" cy="256" r="40" fill="none" stroke="#000000" stroke-opacity="0.18" stroke-width="1"/>
+</svg>
